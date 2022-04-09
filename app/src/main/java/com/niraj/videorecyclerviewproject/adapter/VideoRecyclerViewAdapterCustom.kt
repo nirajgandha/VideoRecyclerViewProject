@@ -9,7 +9,7 @@ import com.niraj.videorecyclerviewproject.databinding.RecyclerViewListItemBindin
 import com.niraj.videorecyclerviewproject.model.Video
 
 class VideoRecyclerViewAdapterCustom(videoArrayList: ArrayList<Video>, requestManager: RequestManager): RecyclerView.Adapter<RecyclerView.ViewHolder>() {
-    private var videoArrayList: ArrayList<Video> = arrayListOf()
+    internal var videoArrayList: ArrayList<Video> = arrayListOf()
     private var requestManager: RequestManager
     init {
         this.videoArrayList = videoArrayList
@@ -49,6 +49,10 @@ class VideoRecyclerViewAdapterCustom(videoArrayList: ArrayList<Video>, requestMa
             val lastIndex = source.lastIndexOf("/")
             val subString = source.subSequence(0, lastIndex + 1).toString()
             return subString.plus(videoObject.thumb!!)
+        }
+
+        fun saveTime(currentPosition: Long?) {
+            videoObject?.time = currentPosition ?: 0
         }
 
     }

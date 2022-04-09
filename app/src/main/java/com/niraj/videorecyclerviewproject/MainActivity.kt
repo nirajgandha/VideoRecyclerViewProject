@@ -58,6 +58,7 @@ class MainActivity : AppCompatActivity() {
                 adapter = VideoRecyclerViewAdapterCustom(it.videos!!, getGlide())
 
                 customRecyclerView = CustomRecyclerView(this)
+                customRecyclerView.setVideoArray(it.videos!!)
 
                 binding.root.addView(customRecyclerView, ConstraintLayout.LayoutParams.MATCH_PARENT, ConstraintLayout.LayoutParams.MATCH_PARENT)
                 customRecyclerView.layoutManager = layoutManager

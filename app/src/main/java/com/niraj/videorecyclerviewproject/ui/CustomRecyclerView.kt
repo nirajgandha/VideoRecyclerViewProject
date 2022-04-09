@@ -1,13 +1,11 @@
 package com.niraj.videorecyclerviewproject.ui
 
 import android.content.Context
-import android.graphics.Point
 import android.net.Uri
 import android.util.AttributeSet
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
-import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.ProgressBar
@@ -22,6 +20,7 @@ import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
 import com.google.android.exoplayer2.ui.StyledPlayerView
 import com.google.android.exoplayer2.upstream.DefaultDataSource
 import com.niraj.videorecyclerviewproject.adapter.VideoRecyclerViewAdapterCustom
+import com.niraj.videorecyclerviewproject.model.Video
 
 
 class CustomRecyclerView : RecyclerView {
@@ -38,7 +37,7 @@ class CustomRecyclerView : RecyclerView {
     private var frameLayout: FrameLayout? = null
     private var videoSurfaceHeightDef: Int = 0
     private var screenHeightDef: Int = 0
-    private var holder: VideoRecyclerViewAdapterCustom.VideoViewHolderCustom? = null
+    private lateinit var videoArrayList: ArrayList<Video>
 
     constructor(context: Context) : super(context) {
         init(context)
@@ -55,12 +54,7 @@ class CustomRecyclerView : RecyclerView {
 
     private fun init(context: Context) {
         contextApp = context.applicationContext
-        val defaultDisplay =
-            (getContext().getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay
-        val point = Point()
-        defaultDisplay.getSize(point)
-        videoSurfaceHeightDef = point.x
-        screenHeightDef = point.y
+        screenHeightDef = context.resources.displayMetrics.heightPixels
 
         videoSurface = StyledPlayerView(contextApp)
         videoSurface.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
@@ -74,7 +68,6 @@ class CustomRecyclerView : RecyclerView {
                 super.onScrollStateChanged(recyclerView, newState)
 
                 if (newState == SCROLL_STATE_IDLE) {
-                    Log.d(mTAG, "onScrollStateChanged: ")
                     if (null != thumbnail) {
                         thumbnail?.visibility = View.VISIBLE
                     }
@@ -98,8 +91,8 @@ class CustomRecyclerView : RecyclerView {
         })
 
         videoPlayer?.addListener(object : Player.Listener {
-            override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
-                super.onPlayerStateChanged(playWhenReady, playbackState)
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                super.onPlaybackStateChanged(playbackState)
                 when (playbackState) {
                     Player.STATE_BUFFERING -> {
                         Log.d(mTAG, "onPlayWhenReadyChanged: buffering")
@@ -119,13 +112,6 @@ class CustomRecyclerView : RecyclerView {
 
                     Player.STATE_IDLE -> {
                     }
-                }
-            }
-
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                super.onIsPlayingChanged(isPlaying)
-                if (!isPlaying) {
-                    holder?.videoObject?.time = videoPlayer?.currentPosition
                 }
             }
         })
@@ -160,20 +146,20 @@ class CustomRecyclerView : RecyclerView {
                 startPos
             }
         } else {
-            targetPos = if (null != adapter) {
-                adapter!!.itemCount - 1
+            targetPos = if (this::videoArrayList.isInitialized) {
+                videoArrayList.size - 1
             } else {
                 0
             }
         }
-        Log.d(mTAG, "playVideo: targetPos: $targetPos")
+        Log.d(mTAG, "playVideo at targetPos: $targetPos")
 
         if (targetPos == playPosition) {
             return
         }
 
-        if (holder != null) {
-            holder!!.videoObject!!.time = videoPlayer?.currentPosition ?: 0
+        if (playPosition != -1) {
+            videoArrayList[playPosition].time = videoPlayer?.currentPosition
         }
 
         playPosition = targetPos
@@ -186,7 +172,6 @@ class CustomRecyclerView : RecyclerView {
         val child = getChildAt(currentPos) ?: return
 
         val holder = child.tag as VideoRecyclerViewAdapterCustom.VideoViewHolderCustom
-        this.holder = holder
 
         thumbnail = holder.binding.thumbnail
         progressBar = holder.binding.progressBar
@@ -214,6 +199,7 @@ class CustomRecyclerView : RecyclerView {
         Log.d(mTAG, "getVisibleVideoSurfaceHeight: $atPos")
 
         val child = getChildAt(atPos) ?: return 0
+        videoSurfaceHeightDef = child.height
         val location = IntArray(2)
         child.getLocationInWindow(location)
 
@@ -225,7 +211,7 @@ class CustomRecyclerView : RecyclerView {
 
     }
 
-    // Remove the old player
+    // Remove the old player from holder
     private fun removeVideoView(videoView: StyledPlayerView) {
         val parent = videoView.parent as? ViewGroup ?: return
         val index = parent.indexOfChild(videoView)
@@ -243,13 +229,19 @@ class CustomRecyclerView : RecyclerView {
         videoSurface.visibility = VISIBLE
         videoSurface.alpha = 1F
         thumbnail?.visibility = GONE
-        if (null != holder) {
-            videoPlayer?.seekTo(holder!!.videoObject!!.time ?: 0)
+        //seek video to resume from previous position
+        if (-1 != playPosition) {
+            videoPlayer?.seekTo(videoArrayList[playPosition].time ?: 0)
+            videoArrayList[playPosition].time = 0L
         }
     }
 
     private fun resetVideoView() {
         if (isVideoViewAdded) {
+            //save time of previous playing video
+            if (playPosition != -1) {
+                videoArrayList[playPosition].time = videoPlayer?.currentPosition
+            }
             removeVideoView(videoSurface)
             playPosition = -1
             videoSurface.visibility = INVISIBLE
@@ -258,10 +250,8 @@ class CustomRecyclerView : RecyclerView {
     }
 
     fun releasePlayer() {
-        if (videoPlayer != null) {
-            videoPlayer!!.release()
-            videoPlayer = null
-        }
+        videoPlayer?.release()
+        videoPlayer = null
         viewParent = null
     }
 
@@ -271,5 +261,9 @@ class CustomRecyclerView : RecyclerView {
 
     fun resumePlayer() {
         videoPlayer?.play()
+    }
+
+    fun setVideoArray(videoArrayList: ArrayList<Video>) {
+        this.videoArrayList = videoArrayList
     }
 }
